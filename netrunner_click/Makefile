@@ -57,7 +57,7 @@ $(TARGET).hex: $(TARGET).elf
 
 
 # Target: program project.
-program: size $(TARGET).hex
+program: $(TARGET).hex size
 	$(PROGRAMMER) $(PROGRAMMER_FLAGS) $(WRITE_FLASH)
 
 

@@ -10,18 +10,18 @@
 
 #define LED_PORT PORTB
 #define LED_DDR DDRB
-#define LEDS 0xff
+#define LED_MASK 0xff
 
-#define START 0xe0
+#define START 0xf0
 #define FLASHRATE 6
 
 typedef enum {MODE_NORM, MODE_PERM} mode_t;
 
-void increase (uint8_t *value, uint8_t max, uint8_t wrap, uint8_t pad_bit)
+void increase (uint8_t *value, uint8_t max, uint8_t wrap)
 {
     if ((*value & max) != max)
     {
-        *value = (pad_bit | (*value >> 1)) & max;
+        *value = (0x80 | (*value >> 1)) & max;
     }
     else if (wrap)
     {
@@ -29,11 +29,11 @@ void increase (uint8_t *value, uint8_t max, uint8_t wrap, uint8_t pad_bit)
     }
 }
 
-void decrease (uint8_t *value, uint8_t wrap, uint8_t pad_bit)
+void decrease (uint8_t *value, uint8_t wrap)
 {
     if (*value != 0)
     {
-        *value = pad_bit | (*value << 1);
+        *value = *value << 1;
     }
     else if (wrap)
     {
@@ -46,13 +46,15 @@ int main (void)
     // Initialise the jumpers
     jumpers_init ();
 
-    uint8_t reset = START | (jumper_state(JUMP_START) << 4);
+    uint8_t countup = jumper_state (JUMP_START);
+    uint8_t reset = START;
     uint8_t value = reset;
-
+    uint8_t maxvalue = LED_MASK;
+    uint8_t setup = 0;
     mode_t mode = MODE_NORM;
 
     // Setup port C for LEDs
-    LED_DDR = LEDS;
+    LED_DDR = LED_MASK;
 
     // Initialise the buttons
     buttons_init ();
@@ -60,34 +62,67 @@ int main (void)
     // Loop forever
     while (1)
     {
-        mode = buttons_state (BUT_MODE, STATE_HELD);
-
-        if (buttons_state (BUT_LESS, STATE_GONEDOWN))
+        if (setup == 2)
+            mode = buttons_state (BUT_MODE, STATE_HELD);
+        else if (setup == 0)
         {
-            if (mode == MODE_NORM)
+            mode = MODE_PERM;
+            if (buttons_state (BUT_MODE, STATE_HELD))
             {
-                decrease (&value, reset, 0);
-            }
-            else
-            {
-                decrease (&reset, 0, 0);
+                setup = 1;
             }
         }
+        else if (setup == 1)
+        {
+            if (!buttons_state (BUT_MODE, STATE_HELD))
+            {
+                setup = 2;
+                if (!countup)
+                    value = reset;
+                else
+                {
+                    maxvalue = reset;
+                    value = 0;
+                }
+            }
+        }
+        uint8_t* changed = &reset;
+        uint8_t wrap = 0;
 
-        if (buttons_state (BUT_MORE, STATE_GONEDOWN))
+        if (mode == MODE_PERM || !countup)
         {
             if (mode == MODE_NORM)
             {
-                increase (&value, 0xff, 0, 0x80);
+                changed = &value;
+                wrap = reset;
             }
-            else
+            if (buttons_state (BUT_LESS, STATE_GONEDOWN))
+                decrease (changed, wrap);
+            if (buttons_state (BUT_MORE, STATE_GONEDOWN))
+                increase (changed, LED_MASK, 0);
+            if (value == 0 && countup)
             {
-                increase (&reset, 0xff, 0, 0x80);
+                maxvalue = reset;
+            }
+        }
+        else
+        {
+            if (buttons_state (BUT_MORE, STATE_GONEDOWN))
+                increase (&maxvalue, LED_MASK, 0);
+            if (buttons_state (BUT_LESS, STATE_GONEDOWN))
+            {
+                increase (&value, maxvalue, 1);
+                if (value == 0)
+                    maxvalue = reset;
             }
         }
 
         if (mode == MODE_NORM)
+        {
             LED_PORT = value;
+            if (countup)
+                LED_PORT |= !(g_flash & 0x7) ? maxvalue : 0;
+        }
         else
             LED_PORT = ((g_flash >> FLASHRATE) & 0x1) ? reset : 0;
 
