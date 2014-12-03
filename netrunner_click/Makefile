@@ -11,7 +11,7 @@ TARGET      = main
 
 # List of C source files
 SRC         = $(TARGET).c
-# SRC         += foo.c bar.c
+SRC         += buttons.c
 
 # C definitions
 CFLAGS      = -std=gnu99 -Os -Wall -Wstrict-prototypes -Wextra
@@ -47,12 +47,12 @@ all: $(TARGET).elf size
 
 
 # Link: create output file (executable) from object files.
-%.elf: $(OBJ)
+$(TARGET).elf: $(OBJ)
 	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
 
 
 # Create hex file for programming from executable file.
-%.hex: %.elf
+$(TARGET).hex: $(TARGET).elf
 	$(OBJCOPY) -O $(FORMAT) $< $@
 
 
