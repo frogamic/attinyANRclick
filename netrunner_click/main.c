@@ -20,6 +20,9 @@ int main (void)
     LED_DDR = LEDS;
     LED_PORT = reset;
 
+    // Initialise the buttons
+    buttons_init ();
+
     // Loop forever
     while (1)
     {
