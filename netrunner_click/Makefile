@@ -31,6 +31,7 @@ SIZE        = avr-size
 DEL         = rm
 PROGRAMMER  = avrdude
 
+PROGRAMMER_FLAGS = -p $(PART) -c $(INTERFACE)
 WRITE_FLASH = -U flash:w:$(TARGET).hex
 
 # Define all object files
@@ -57,7 +58,7 @@ all: $(TARGET).elf size
 
 # Target: program project.
 program: size $(TARGET).hex
-	$(PROGRAMMER) -p $(PART) -c $(INTERFACE) $(WRITE_FLASH)
+	$(PROGRAMMER) $(PROGRAMMER_FLAGS) $(WRITE_FLASH)
 
 
 # Get size of ELF file
