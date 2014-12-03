@@ -18,8 +18,8 @@ void buttons_init (void)
     TIMSK |= 1<<TOIE0;
     TCNT0 = 0;
     sei (); 
-    BUTTON_DDR &= 0xffff - BUTTON_MASK;
-    BUTTON_PORT = BUTTON_MASK;
+    BUTTON_DDR &= ~BUTTON_MASK;
+    BUTTON_PORT |= BUTTON_MASK;
 }
 
 uint8_t buttons_state (button_t b, state_t s)
@@ -27,8 +27,9 @@ uint8_t buttons_state (button_t b, state_t s)
     cli();
     if (g_buttons[b] & s)
     {
+        // Clear the gonedown state
         if (s == STATE_GONEDOWN)
-            g_buttons[b] &= STATE_HELD;
+            g_buttons[b] &= ~STATE_GONEDOWN;
         sei();
         return 1;
     }

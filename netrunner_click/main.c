@@ -1,24 +1,58 @@
+/**
+ * @file    main.c
+ * @author  Dominic Shelton
+ * @date    29 Nov 2014
+ */
+
 #include <avr/io.h>
 #include "buttons.h"
+#include "jumpers.h"
 
 #define LED_PORT PORTB
 #define LED_DDR DDRB
 #define LEDS 0xff
 
-#define START 0xf0
+#define START 0xe0
 #define FLASHRATE 6
 
 typedef enum {MODE_NORM, MODE_PERM} mode_t;
 
+void increase (uint8_t *value, uint8_t max, uint8_t wrap, uint8_t pad_bit)
+{
+    if ((*value & max) != max)
+    {
+        *value = (pad_bit | (*value >> 1)) & max;
+    }
+    else if (wrap)
+    {
+        *value = 0;
+    }
+}
+
+void decrease (uint8_t *value, uint8_t wrap, uint8_t pad_bit)
+{
+    if (*value != 0)
+    {
+        *value = pad_bit | (*value << 1);
+    }
+    else if (wrap)
+    {
+        *value = wrap;
+    }
+}
+
 int main (void)
 {
-    uint8_t reset = START;
-    uint8_t value = START;
+    // Initialise the jumpers
+    jumpers_init ();
+
+    uint8_t reset = START | (jumper_state(JUMP_START) << 4);
+    uint8_t value = reset;
+
     mode_t mode = MODE_NORM;
 
     // Setup port C for LEDs
     LED_DDR = LEDS;
-    LED_PORT = reset;
 
     // Initialise the buttons
     buttons_init ();
@@ -32,19 +66,11 @@ int main (void)
         {
             if (mode == MODE_NORM)
             {
-                if (!(value & LEDS))
-                {
-                    value = reset;
-                }
-                else
-                {
-                    value = (value << 1) & LEDS;
-                }
+                decrease (&value, reset, 0);
             }
             else
             {
-                if ((reset & LEDS))
-                    reset = LEDS & (reset << 1);
+                decrease (&reset, 0, 0);
             }
         }
 
@@ -52,13 +78,11 @@ int main (void)
         {
             if (mode == MODE_NORM)
             {
-                if (!(value & 0x1))
-                    value = 0x80 | (value >> 1);
+                increase (&value, 0xff, 0, 0x80);
             }
             else
             {
-                if (!(reset & 0x1))
-                    reset = 0x80 | (reset >> 1);
+                increase (&reset, 0xff, 0, 0x80);
             }
         }
 

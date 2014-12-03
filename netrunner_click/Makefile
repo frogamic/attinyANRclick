@@ -11,7 +11,10 @@ TARGET      = main
 
 # List of C source files
 SRC         = $(TARGET).c
-SRC         += buttons.c
+SRC         += buttons.c jumpers.c
+
+# Define all object files
+OBJ         = $(SRC:.c=.o)
 
 # C definitions
 CFLAGS      = -std=gnu99 -Os -Wall -Wstrict-prototypes -Wextra
@@ -33,9 +36,6 @@ PROGRAMMER  = avrdude
 
 PROGRAMMER_FLAGS = -p $(PART) -c $(INTERFACE)
 WRITE_FLASH = -U flash:w:$(TARGET).hex
-
-# Define all object files
-OBJ         = $(SRC:.c=.o)
 
 # Default target.
 all: $(TARGET).elf size
@@ -68,14 +68,18 @@ size:
 
 # Target: clean project.
 clean: 
-	@$(DEL) *.o *.elf *.hex 2>/dev/null || true
+	@$(DEL) *.d *.o *.elf *.hex 2>/dev/null || true
 
 
 # Automatically generate C source code dependencies. 
 # (Code originally taken from the GNU make user manual and modified)
 %.d: %.c
-	set -e; $(CC) -MM $(CFLAGS) $< \
+	@set -e; $(CC) -MM $(CFLAGS) $< \
 	| sed 's,\(.*\)\.o[ :]*,\1.o \1.d : ,g' > $@; \
 	[ -s $@ ] || rm -f $@
+
+
+-include $(SRC:.c=.d)
+
 
 .PHONY: program clean size
