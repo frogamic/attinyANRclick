@@ -12,7 +12,7 @@
 #define LED_DDR DDRB
 #define LED_MASK 0xff
 
-#define START 0xf0
+#define START 0x07
 #define FLASHRATE 6
 
 typedef enum {MODE_NORM, MODE_PERM} mode_t;
@@ -21,7 +21,7 @@ void increase (uint8_t *value, uint8_t max, uint8_t wrap)
 {
     if ((*value & max) != max)
     {
-        *value = (0x80 | (*value >> 1)) & max;
+        *value = (0x01 | (*value << 1)) & max;
     }
     else if (wrap)
     {
@@ -33,7 +33,7 @@ void decrease (uint8_t *value, uint8_t wrap)
 {
     if (*value != 0)
     {
-        *value = *value << 1;
+        *value = *value >> 1;
     }
     else if (wrap)
     {
