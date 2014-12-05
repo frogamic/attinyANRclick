@@ -7,13 +7,15 @@
 #ifndef JUMPERS_H
 #define JUMPERS_H
 
-#define JUMPER_PORT PORTD
-#define JUMPER_DDR DDRD
-#define JUMPER_PIN PIND
-#define JUMPER_OFFSET 3
-#define JUMPER_MASK 0x8
+#define JUMPER_PORT PORTB
+#define JUMPER_DDR DDRB
+#define JUMPER_PIN PINB
+// CHANGED TO 2 FOR TESTING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#define JUMPER_OFFSET 2  // TODO: CHANGE BACK     !!!!!!!
+#define JUMPER_MASK 0x0f // TODO: CHANGE to 0x08  !!!!!!!
+// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-typedef enum {JUMP_START} jumper_t;
+typedef enum {JUMP_MODE} jumper_t;
 
 void jumpers_init (void);
 

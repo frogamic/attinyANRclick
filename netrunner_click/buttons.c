@@ -14,8 +14,8 @@ volatile uint8_t g_flash = 0;
 void buttons_init (void)
 {
     cli ();
-    TCCR0 |= 1<<CS01;
-    TIMSK |= 1<<TOIE0;
+    TCCR0B |= 1<<CS01; // Prescaler of clk(1mhz)/8
+    TIMSK0 |= 1<<TOIE0; // Interrupt 
     TCNT0 = 0;
     sei (); 
     BUTTON_DDR &= ~BUTTON_MASK;
@@ -37,7 +37,7 @@ uint8_t buttons_state (button_t b, state_t s)
     return 0;
 }
 
-ISR (TIMER0_OVF_vect)
+ISR (TIM0_OVF_vect)
 {
     // Super hacky flasher plz ignore
     g_flash++;

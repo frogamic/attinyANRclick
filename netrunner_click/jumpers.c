@@ -17,6 +17,6 @@ void jumpers_init (void)
 
 uint8_t jumper_state (jumper_t j)
 {
-    return ~(JUMPER_PIN >> (JUMPER_OFFSET + j)) & 0x01;
+    return !(JUMPER_PIN >> (JUMPER_OFFSET + j)) & 0x01;
 }
 

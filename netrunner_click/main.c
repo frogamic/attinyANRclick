@@ -8,8 +8,8 @@
 #include "buttons.h"
 #include "jumpers.h"
 
-#define LED_PORT PORTB
-#define LED_DDR DDRB
+#define LED_PORT PORTA
+#define LED_DDR DDRA
 #define LED_MASK 0xff
 
 #define START 0x07
@@ -46,7 +46,7 @@ int main (void)
     // Initialise the jumpers
     jumpers_init ();
 
-    uint8_t countup = jumper_state (JUMP_START);
+    uint8_t countup = !jumper_state (JUMP_MODE);
     uint8_t reset = START;
     uint8_t value = reset;
     uint8_t maxvalue = LED_MASK;

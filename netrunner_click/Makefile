@@ -21,10 +21,10 @@ CFLAGS      = -std=gnu99 -Os -Wall -Wstrict-prototypes -Wextra
 LDFLAGS     = -lm
 
 # Programmer definitions
-MMCU        = atmega8
+MMCU        = attiny24a
 FORMAT      = ihex
 INTERFACE   = usbtiny
-PART        = m8
+PART        = t24
 CFLAGS      += -mmcu=$(MMCU)
 
 # Programming Definitions

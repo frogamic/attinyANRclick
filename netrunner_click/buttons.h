@@ -7,9 +7,9 @@
 #ifndef BUTTONS_H
 #define BUTTONS_H
 
-#define BUTTON_PORT PORTD
-#define BUTTON_DDR DDRD
-#define BUTTON_PIN PIND
+#define BUTTON_PORT PORTB
+#define BUTTON_DDR DDRB
+#define BUTTON_PIN PINB
 #define BUTTON_NUM 3
 #define BUTTON_MASK 0x7
 #define BUTTON_DEBOUNCE 12
