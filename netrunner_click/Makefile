@@ -43,31 +43,36 @@ all: $(TARGET).elf size
 
 # Compile: create object files from C source files.
 %.o: %.c
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) $< -c -o $@
+	@echo
 
 
 # Link: create output file (executable) from object files.
 $(TARGET).elf: $(OBJ)
-	$(CC) $(CFLAGS) $^ -o $@ $(LDFLAGS)
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ -o $@
+	@echo
 
 
 # Create hex file for programming from executable file.
 $(TARGET).hex: $(TARGET).elf
 	$(OBJCOPY) -O $(FORMAT) $< $@
+	@echo
 
 
 # Target: program project.
 program: $(TARGET).hex size
 	$(PROGRAMMER) $(PROGRAMMER_FLAGS) $(WRITE_FLASH)
+	@echo
 
 
 # Get size of ELF file
 size:
-	@if [ -s $(TARGET).elf ]; then echo; $(SIZE) $(TARGET).elf; echo; fi
+	@if [ -s $(TARGET).elf ]; then echo $(SIZE) $(TARGET).elf; $(SIZE) $(TARGET).elf; echo; fi
 
 
 # Target: clean project.
 clean: 
+	@echo $(DEL) *.d *.o *.elf *.hex
 	@$(DEL) *.d *.o *.elf *.hex 2>/dev/null || true
 
 
