@@ -17,7 +17,7 @@ SRC         += buttons.c jumpers.c
 OBJ         = $(SRC:.c=.o)
 
 # C definitions
-CFLAGS      = -std=gnu99 -Os -Wall -Wstrict-prototypes -Wextra
+CFLAGS      = -std=gnu99 -O3 -Wall -Wstrict-prototypes -Wextra
 LDFLAGS     = -lm
 
 # Programmer definitions

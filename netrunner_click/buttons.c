@@ -37,7 +37,7 @@ void buttons_init (void)
     BUTTON_PORT |= BUTTON_MASK;
 }
 
-uint8_t buttons_state (button_t b, state_t s)
+uint8_t button_state (button_t b, state_t s)
 {
     // Disable interrupts while polling buttons.
     cli();
@@ -93,7 +93,12 @@ ISR (TIM0_OVF_vect)
         {
             // If button was held down longer it is considered held.
             g_buttons[i] |= STATE_HELD;
-            button[i] = BUTTON_DEBOUNCE + 1;
+            button[i] = BUTTON_DEBOUNCE;
+        }
+        else
+        {
+            // Clear the held state when button released.
+            g_buttons[i] &= ~STATE_HELD;
         }
 
         // Shift the pin values to get the next button.

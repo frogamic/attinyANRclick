@@ -82,38 +82,31 @@ int main (void)
     // Loop forever
     while (1)
     {
-        if (setup == 0)
+        if (setup == 0 && button_state (BUT_MODE, STATE_HELD))
         {
-            // The setup process has not begun.
-            if (buttons_state (BUT_MODE, STATE_HELD))
-            {
-                // Advance the setup process if the mode button has been held.
-                setup = 1;
-            }
+            // Advance the setup process if the mode button has been held for
+            // the first time since starting.
+            setup = 1;
         }
-        else if (setup == 1)
+        else if (setup == 1 && !button_state (BUT_MODE, STATE_HELD))
         {
-            // Setup is underway.
-            if (!buttons_state (BUT_MODE, STATE_HELD))
-            {
-                // Leave the setup process if the mode button is released.
-                setup = 2;
+            // Leave the setup process if the mode button is released.
+            setup = 2;
 
-                // Set the initial value and maxvalue based on the counting
-                // direction.
-                if (!countup)
-                    value = reset;
-                else
-                {
-                    maxvalue = reset;
-                    value = 0;
-                }
+            // Set the initial value and maxvalue based on the counting
+            // direction.
+            if (!countup)
+                value = reset;
+            else
+            {
+                maxvalue = reset;
+                value = 0;
             }
         }
-        else
+        else if (setup == 2)
         {
             // Setup is complete, set mode based on mode key.
-            mode = buttons_state (BUT_MODE, STATE_HELD);
+            mode = button_state (BUT_MODE, STATE_HELD);
         }
 
         // Choose the value to be changed.
@@ -133,9 +126,9 @@ int main (void)
             }
 
             // Shift the changing value depending on the button pressed.
-            if (buttons_state (BUT_CLICK, STATE_GONEDOWN))
+            if (button_state (BUT_CLICK, STATE_GONEDOWN))
                 shift_left (changed, wrap);
-            if (buttons_state (BUT_ADD, STATE_GONEDOWN))
+            if (button_state (BUT_ADD, STATE_GONEDOWN))
                 // In these 2 modes we never wrap when shifting right.
                 shift_right (changed, LED_MASK, 0);
             if (value == 0 && countup)
@@ -150,9 +143,9 @@ int main (void)
             // We are are counting up and not changing the starting clicks.
 
             // Shift the values according to the buttons pressed.
-            if (buttons_state (BUT_ADD, STATE_GONEDOWN))
+            if (button_state (BUT_ADD, STATE_GONEDOWN))
                 shift_right (&maxvalue, LED_MASK, 0);
-            if (buttons_state (BUT_CLICK, STATE_GONEDOWN))
+            if (button_state (BUT_CLICK, STATE_GONEDOWN))
             {
                 shift_right (&value, maxvalue, 1);
 

@@ -24,7 +24,7 @@ void buttons_init (void);
  * @param   s   The desired state.
  * @return  1 if the button has the state, otherwise 0.
  */
-uint8_t buttons_state (button_t b, state_t s);
+uint8_t button_state (button_t b, state_t s);
 
 #endif
 
