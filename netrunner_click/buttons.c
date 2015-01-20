@@ -18,6 +18,11 @@
 static volatile state_t g_buttons[BUTTON_NUM] = {0};
 volatile uint8_t g_flash = 0;
 
+void button_add_press (button_t b)
+{
+    g_buttons[b] |= STATE_GONEDOWN;
+}
+
 void buttons_init (void)
 {
     // Setup timer0 for interrupt polling of buttons.

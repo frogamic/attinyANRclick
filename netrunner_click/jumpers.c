@@ -10,10 +10,7 @@
 #define JUMPER_PORT PORTB
 #define JUMPER_DDR DDRB
 #define JUMPER_PIN PINB
-// CHANGED TO 2 FOR TESTING!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#define JUMPER_OFFSET 2  // TODO: CHANGE BACK     !!!!!!!
-#define JUMPER_MASK 0x0f // TODO: CHANGE to 0x08  !!!!!!!
-// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#define JUMPER_MASK 0x08
 
 void jumpers_init (void)
 {
@@ -23,8 +20,8 @@ void jumpers_init (void)
     JUMPER_PORT |= JUMPER_MASK;
 }
 
-uint8_t jumper_state (jumper_t j)
+uint8_t jumper_state (uint8_t j)
 {
-    return !(JUMPER_PIN >> (JUMPER_OFFSET + j)) & 0x01;
+    return (JUMPER_PIN & j) != j;
 }
 

@@ -7,8 +7,6 @@
 #ifndef JUMPERS_H
 #define JUMPERS_H
 
-typedef enum {JUMP_MODE} jumper_t;
-
 /**
  * @brief   Sets the jumper pins to input with pullup resistor.
  */
@@ -19,7 +17,7 @@ void jumpers_init (void);
  * @param   j   The jumper to check the state of.
  * @return  1 if the jumper is low, otherwise 0.
  */
-uint8_t jumper_state (jumper_t j);
+uint8_t jumper_state (uint8_t j);
 
 #endif
 

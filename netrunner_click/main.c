@@ -5,6 +5,8 @@
  */
 
 #include <avr/io.h>
+#include <avr/sleep.h>
+#include <avr/interrupt.h>
 #include "buttons.h"
 #include "jumpers.h"
 
@@ -16,17 +18,19 @@
 #define START 0x07
 #define FLASHRATE 6
 
+#define JUMP_WRAP 0x01 // Pin0, i.e. left button
+#define JUMP_MODE 0x04 // Pin2, i.e. right button
+
 typedef enum {MODE_NORM, MODE_PERM} mode_t;
 
 /**
- * @brief   Shifts a value to the right by 1 bit, padding the left most bit, and
+ * @brief   Shifts LEDs to the right by 1, padding the left most bit, and
  *          wrapping as desired.
  * @param   value   A pointer to the 8 bit value to be shifted.
  * @param   max     A bitmask of the max value. If a shift is attempted on this
  *                  value (or greater), value will not be shifted and a wrap may
  *                  occur.
- * @param   wrap    A boolean value indicating whether to wrap value to 0 when
- *                  max is reached.
+ * @param   wrap    A bitmask of the value to wrap to once value reaches max.
  */
 void shift_right (uint8_t *value, uint8_t max, uint8_t wrap)
 {
@@ -34,40 +38,66 @@ void shift_right (uint8_t *value, uint8_t max, uint8_t wrap)
     {
         *value = (0x01 | (*value << 1)) & max;
     }
-    else if (wrap)
-    {
-        *value = 0;
-    }
-}
-
-/**
- * @brief   Shifts a value to the left by 1 bit, wrapping as desired.
- * @param   value   A pointer to the 8 bit value to be shifted.
- * @param   wrap    A bitmask of the value to wrap to once value reaches 0. A
- *                  bitmask of all 0s indicates that wrapping should not occur.
- */
-void shift_left (uint8_t *value, uint8_t wrap)
-{
-    if (*value != 0)
-    {
-        *value = *value >> 1;
-    }
-    else if (wrap)
+    else
     {
         *value = wrap;
     }
 }
 
+/**
+ * @brief   Shifts the LEDs to the left by 1, wrapping as desired.
+ * @param   value   A pointer to the 8 bit value to be shifted.
+ * @param   min     A bitmask of the miminimum allowable value before wrapping.
+ * @param   wrap    A bitmask of the value to wrap to once value reaches min.
+ */
+void shift_left (uint8_t *value, uint8_t min, uint8_t wrap)
+{
+    if (*value != min)
+    {
+        *value = *value >> 1;
+    }
+    else
+    {
+        *value = wrap;
+    }
+}
+
+/**
+ * @brief   puts the micro to sleep for half a second
+ */
+void sleep (void)
+{
+    // Enable watchdog interrupt and set prescaler for 0.5s.
+    WDTCSR |= (1 << WDIE) | (1 << WDP0) | (1 << WDP2);
+    set_sleep_mode (SLEEP_MODE_PWR_DOWN);
+    sleep_mode ();
+}
+
+ISR (WATCHDOG_vect)
+{
+    WDTCSR &= !(1 << WDIE);
+    button_add_press (BUT_CLICK);
+}
+
+
 int main (void)
 {
+    // Disable Timer1, USI & ADC.
+    PRR |= (1 << PRTIM1) & (1 << PRUSI) & (1 << PRADC);
+
     jumpers_init ();
 
     buttons_init ();
 
+    // Set the LEDs to output
     LED_DDR = LED_MASK;
 
+    // Set the waiting flag to 0 to indicate we are not waiting for the turn
+    uint8_t waiting = 0;
     // Set the countup value based on the state of the mode jumper.
-    uint8_t countup = !jumper_state (JUMP_MODE);
+    uint8_t countup = jumper_state (JUMP_MODE);
+    // Set the mimimum value based on the state of the mode jumper.
+    uint8_t autostart = jumper_state (JUMP_WRAP);
     // Set the initial number of clicks to reset to each turn.
     uint8_t reset = START;
     // Set the initial number of clicks to start with.
@@ -109,10 +139,12 @@ int main (void)
             mode = button_state (BUT_MODE, STATE_HELD);
         }
 
+        // Set mimimum to 1 so that the permanant clicks cannot go below this
+        uint8_t minimum = 0x01;
         // Choose the value to be changed.
         uint8_t* changed = &reset;
         // Choose the value to wrap to.
-        uint8_t wrap = 0;
+        uint8_t wrap = minimum;
 
         // Get the input
         if (mode == MODE_PERM || !countup)
@@ -123,14 +155,15 @@ int main (void)
                 // We are counting down, set the changing value and wrap.
                 changed = &value;
                 wrap = reset;
+                minimum = 0;
             }
 
             // Shift the changing value depending on the button pressed.
             if (button_state (BUT_CLICK, STATE_GONEDOWN))
-                shift_left (changed, wrap);
+                shift_left (changed, minimum, wrap);
             if (button_state (BUT_ADD, STATE_GONEDOWN))
                 // In these 2 modes we never wrap when shifting right.
-                shift_right (changed, LED_MASK, 0);
+                shift_right (changed, LED_MASK, LED_MASK);
             if (value == 0 && countup)
             {
                 // If we are not in turn and are counting up the max value for the
@@ -144,10 +177,10 @@ int main (void)
 
             // Shift the values according to the buttons pressed.
             if (button_state (BUT_ADD, STATE_GONEDOWN))
-                shift_right (&maxvalue, LED_MASK, 0);
+                shift_right (&maxvalue, LED_MASK, LED_MASK);
             if (button_state (BUT_CLICK, STATE_GONEDOWN))
             {
-                shift_right (&value, maxvalue, 1);
+                shift_right (&value, maxvalue, 0);
 
                 // If we have wrapped then the max value for the next turn must
                 // be reset for next turn.
@@ -159,8 +192,18 @@ int main (void)
         // Set the LEDs.
         if (mode == MODE_NORM)
         {
-            // Mode is normal, display the value.
-            LED_PORT = value;
+            if (!countup && waiting)
+            {
+                // Opponents turn, dim LEDs
+                LED_PORT = !(g_flash & LED_DIM_MASK) ? value : 0;
+                if (value != reset)
+                    waiting = 0;
+            }
+            else
+            {
+                // Mode is normal, display the value.
+                LED_PORT = value;
+            }
             // If counting up, display the remaining clicks dimly.
             if (countup)
                 LED_PORT |= !(g_flash & LED_DIM_MASK) ? maxvalue : 0;
@@ -169,8 +212,17 @@ int main (void)
         {
             // We are changing the click reset value for new turns, display it.
             LED_PORT = ((g_flash >> FLASHRATE) & 0x1) ? reset : 0;
+            // Since you would only do this on your turn, clear the waiting.
+            waiting = 0;
         }
 
+        // If we are autostarting turns and the turn has ended power down
+        // briefly before starting the next turn.
+        if (autostart && !countup && value == 0)
+        {
+            waiting = 1;
+            sleep ();
+        }
     }
 
     return 0;

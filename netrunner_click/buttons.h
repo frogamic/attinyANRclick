@@ -26,5 +26,11 @@ void buttons_init (void);
  */
 uint8_t button_state (button_t b, state_t s);
 
+/**
+ * @brief   Simulates a gonedown event for the button.
+ * @param   b   The button to simulate a press for.
+ */
+void button_add_press (button_t b);
+
 #endif
 
