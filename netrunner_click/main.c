@@ -20,6 +20,7 @@
 
 #define JUMP_WRAP 0x01 // Pin0, i.e. left button
 #define JUMP_MODE 0x04 // Pin2, i.e. right button
+//#define JUMP_MODE 0x08 // Pin3, i.e. 3-pin jumper
 
 typedef enum {MODE_NORM, MODE_PERM} mode_t;
 
@@ -67,15 +68,17 @@ void shift_left (uint8_t *value, uint8_t min, uint8_t wrap)
  */
 void sleep (void)
 {
-    // Enable watchdog interrupt and set prescaler for 0.5s.
-    WDTCSR |= (1 << WDIE) | (1 << WDP0) | (1 << WDP2);
+    // Enable watchdog interrupt and set prescaler for ~~0.5~~ 0.25s.
+    WDTCSR |= (1 << WDIE) | /*(1 << WDP0) |*/ (1 << WDP2);
     set_sleep_mode (SLEEP_MODE_PWR_DOWN);
     sleep_mode ();
 }
 
 ISR (WATCHDOG_vect)
 {
+    // Disable the watchdog interrupt again.
     WDTCSR &= !(1 << WDIE);
+    // Spoof a button press to advance clicks.
     button_add_press (BUT_CLICK);
 }
 
@@ -97,7 +100,7 @@ int main (void)
     // Set the countup value based on the state of the mode jumper.
     uint8_t countup = jumper_state (JUMP_MODE);
     // Set the mimimum value based on the state of the mode jumper.
-    uint8_t autostart = jumper_state (JUMP_WRAP);
+    uint8_t autostart = !jumper_state (JUMP_WRAP);
     // Set the initial number of clicks to reset to each turn.
     uint8_t reset = START;
     // Set the initial number of clicks to start with.
