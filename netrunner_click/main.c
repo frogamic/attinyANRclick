@@ -10,13 +10,14 @@
 #include "buttons.h"
 #include "jumpers.h"
 
-#define LED_PORT PORTA
-#define LED_DDR DDRA
-#define LED_MASK 0xff
-#define LED_DIM_MASK 0x07
+#define LED_PORT PORTA // LED hardware port
+#define LED_DDR DDRA // LED hardware Data Direction Register
+#define LED_MASK 0xff // Total LEDs possible, (ff = 11111111)
+// The flash value is anded with this, if true the LEDs light.
+#define LED_DIM_MASK 0x06
 
-#define START 0x07
-#define FLASHRATE 6
+#define START 0x07 // Starting LED setting (7 = 00000111)
+#define FLASHRATE 6 // Flashing rate during setting total clicks
 
 #define JUMP_WRAP 0x01 // Pin0, i.e. left button
 #define JUMP_MODE 0x04 // Pin2, i.e. right button
@@ -68,6 +69,8 @@ void shift_left (uint8_t *value, uint8_t min, uint8_t wrap)
  */
 void sleep (void)
 {
+    // Turn off all LEDs
+    LED_PORT = 0;
     // Enable watchdog interrupt and set prescaler for ~~0.5~~ 0.25s.
     WDTCSR |= (1 << WDIE) | /*(1 << WDP0) |*/ (1 << WDP2);
     set_sleep_mode (SLEEP_MODE_PWR_DOWN);
@@ -207,9 +210,16 @@ int main (void)
                 // Mode is normal, display the value.
                 LED_PORT = value;
             }
-            // If counting up, display the remaining clicks dimly.
             if (countup)
+            {
+                // If counting up, display the remaining clicks dimly.
                 LED_PORT |= !(g_flash & LED_DIM_MASK) ? maxvalue : 0;
+            }
+            else
+            {
+                // Counting down, display total clicks dimly
+                LED_PORT |= !(g_flash & LED_DIM_MASK) ? reset : 0;
+            }
         }
         else
         {
