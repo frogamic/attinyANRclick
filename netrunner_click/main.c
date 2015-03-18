@@ -17,11 +17,11 @@
 #define LED_DIM_MASK 0x06
 
 #define START 0x07 // Starting LED setting (7 = 00000111)
-#define FLASHRATE 6 // Flashing rate during setting total clicks
+#define FLASH_RATE 6 // Flashing rate during setting total clicks
+#define ROLLOVER_TIME 3 // The number of 'flashes' before rolling over
 
 #define JUMP_WRAP 0x01 // Pin0, i.e. left button
-#define JUMP_MODE 0x04 // Pin2, i.e. right button
-//#define JUMP_MODE 0x08 // Pin3, i.e. 3-pin jumper
+//#define JUMP_WRAP 0x08 // Pin3, i.e. 3-pin jumper
 
 typedef enum {MODE_NORM, MODE_PERM} mode_t;
 
@@ -64,32 +64,10 @@ void shift_left (uint8_t *value, uint8_t min, uint8_t wrap)
     }
 }
 
-/**
- * @brief   puts the micro to sleep for half a second
- */
-void sleep (void)
-{
-    // Turn off all LEDs
-    LED_PORT = 0;
-    // Enable watchdog interrupt and set prescaler for ~~0.5~~ 0.25s.
-    WDTCSR |= (1 << WDIE) | /*(1 << WDP0) |*/ (1 << WDP2);
-    set_sleep_mode (SLEEP_MODE_PWR_DOWN);
-    sleep_mode ();
-}
-
-ISR (WATCHDOG_vect)
-{
-    // Disable the watchdog interrupt again.
-    WDTCSR &= !(1 << WDIE);
-    // Spoof a button press to advance clicks.
-    button_add_press (BUT_CLICK);
-}
-
-
 int main (void)
 {
     // Disable Timer1, USI & ADC.
-    PRR |= (1 << PRTIM1) & (1 << PRUSI) & (1 << PRADC);
+    PRR |= (1 << PRTIM1) | (1 << PRUSI) | (1 << PRADC);
 
     jumpers_init ();
 
@@ -98,26 +76,31 @@ int main (void)
     // Set the LEDs to output
     LED_DDR = LED_MASK;
 
-    // Set the waiting flag to 0 to indicate we are not waiting for the turn
-    uint8_t waiting = 0;
-    // Set the countup value based on the state of the mode jumper.
-    uint8_t countup = jumper_state (JUMP_MODE);
-    // Set the mimimum value based on the state of the mode jumper.
-    uint8_t autostart = !jumper_state (JUMP_WRAP);
+    // Set the flag to automatically advance at the end of a turn.
+    uint8_t autorollover = !jumper_state (JUMP_WRAP);
     // Set the initial number of clicks to reset to each turn.
     uint8_t reset = START;
     // Set the initial number of clicks to start with.
     uint8_t value = reset;
-    // Set the maximum value to all the LEDs.
-    uint8_t maxvalue = LED_MASK;
     // Start the setup process on power on.
     uint8_t setup = 0;
-    // Set the initial system state to permanant change mode.
+    // Set the initial value for rollover after turn finishes
+    uint8_t rollover = 0;
+    // Value used to prevent rollover counter from decrementing too much.
+    uint8_t rollover_last = 0;
+    // Set the initial system state to permanent change mode.
     mode_t mode = MODE_PERM;
 
     // Loop forever
     while (1)
     {
+        // setup mode we change the value with input.
+        uint8_t* changing = &reset;
+        // Can't permanently have fewer than 1 click.
+        uint8_t minimum = 1;
+        // No wrap when changing permanent clicks.
+        uint8_t wrap = 1;
+
         if (setup == 0 && button_state (BUT_MODE, STATE_HELD))
         {
             // Advance the setup process if the mode button has been held for
@@ -129,15 +112,8 @@ int main (void)
             // Leave the setup process if the mode button is released.
             setup = 2;
 
-            // Set the initial value and maxvalue based on the counting
-            // direction.
-            if (!countup)
-                value = reset;
-            else
-            {
-                maxvalue = reset;
-                value = 0;
-            }
+            // Set the initial value to maxvalue.
+            value = reset;
         }
         else if (setup == 2)
         {
@@ -145,100 +121,61 @@ int main (void)
             mode = button_state (BUT_MODE, STATE_HELD);
         }
 
-        // Set mimimum to 1 so that the permanant clicks cannot go below this
-        uint8_t minimum = 0x01;
-        // Choose the value to be changed.
-        uint8_t* changed = &reset;
-        // Choose the value to wrap to.
-        uint8_t wrap = minimum;
-
-        // Get the input
-        if (mode == MODE_PERM || !countup)
-        {
-            // We are counting down, or changing the starting clicks per turn.
-            if (mode == MODE_NORM)
-            {
-                // We are counting down, set the changing value and wrap.
-                changed = &value;
-                wrap = reset;
-                minimum = 0;
-            }
-
-            // Shift the changing value depending on the button pressed.
-            if (button_state (BUT_CLICK, STATE_GONEDOWN))
-                shift_left (changed, minimum, wrap);
-            if (button_state (BUT_ADD, STATE_GONEDOWN))
-                // In these 2 modes we never wrap when shifting right.
-                shift_right (changed, LED_MASK, LED_MASK);
-            if (value == 0 && countup)
-            {
-                // If we are not in turn and are counting up the max value for the
-                // next turn needs to change to reflect the new reset value.
-                maxvalue = reset;
-            }
-        }
-        else
-        {
-            // We are are counting up and not changing the starting clicks.
-
-            // Shift the values according to the buttons pressed.
-            if (button_state (BUT_ADD, STATE_GONEDOWN))
-                shift_right (&maxvalue, LED_MASK, LED_MASK);
-            if (button_state (BUT_CLICK, STATE_GONEDOWN))
-            {
-                shift_right (&value, maxvalue, 0);
-
-                // If we have wrapped then the max value for the next turn must
-                // be reset for next turn.
-                if (value == 0)
-                    maxvalue = reset;
-            }
-        }
-
-        // Set the LEDs.
+        // Select the right values for the mode.
         if (mode == MODE_NORM)
         {
-            if (!countup && waiting)
+            // we want to change the value.
+            changing = &value;
+            // Minimum value of 0.
+            minimum = 0;
+            // Wrap to the reset value.
+            wrap = reset;
+        }
+
+        // Get input
+        if (button_state (BUT_ADD, STATE_GONEDOWN))
+        {
+            shift_right (changing, LED_MASK, LED_MASK);
+            // Cancel any automated rollover.
+            rollover = 0;
+        }
+        if (button_state (BUT_CLICK, STATE_GONEDOWN))
+        {
+            shift_left (changing, minimum, wrap);
+            // Cancel any automated rollover.
+            rollover = 0;
+        }
+
+        if (!(g_flash >> FLASH_RATE) & 0x01)
+            rollover_last = 0;
+        if (rollover > 0)
+        {
+            // Decrement rollover counter only if we have not already this 'flash'
+            if ((g_flash >> FLASH_RATE) & 0x01 && rollover != rollover_last)
             {
-                // Opponents turn, dim LEDs
-                LED_PORT = !(g_flash & LED_DIM_MASK) ? value : 0;
-                if (value != reset)
-                    waiting = 0;
+                rollover --;
+                rollover_last = rollover;
             }
-            else
-            {
-                // Mode is normal, display the value.
-                LED_PORT = value;
-            }
-            if (countup)
-            {
-                // If counting up, display the remaining clicks dimly.
-                LED_PORT |= !(g_flash & LED_DIM_MASK) ? maxvalue : 0;
-            }
-            else
-            {
-                // Counting down, display total clicks dimly
-                LED_PORT |= !(g_flash & LED_DIM_MASK) ? reset : 0;
-            }
+            if (rollover == 0)
+                value = reset;
+        }
+        else if (value == 0 && autorollover)
+        {
+            // Start turn autorollover if we are on 0 clicks and autorollover is enabled.
+            rollover = ROLLOVER_TIME;
+        }
+
+        // Set the LED state.
+        if (mode == MODE_PERM)
+        {
+            // Display the reset value flashing
+            LED_PORT = ((g_flash >> FLASH_RATE) & 0x01) ? reset : 0;
         }
         else
         {
-            // We are changing the click reset value for new turns, display it.
-            LED_PORT = ((g_flash >> FLASHRATE) & 0x1) ? reset : 0;
-            // Since you would only do this on your turn, clear the waiting.
-            waiting = 0;
-        }
-
-        // If we are autostarting turns and the turn has ended power down
-        // briefly before starting the next turn.
-        if (autostart && !countup && value == 0)
-        {
-            waiting = 1;
-            sleep ();
+            LED_PORT = value;
+            // Display the maximum clicks dimly.
+            LED_PORT |= !(g_flash & LED_DIM_MASK) ? reset : 0;
         }
     }
-
-    return 0;
-
 }
-
