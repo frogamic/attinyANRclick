@@ -14,9 +14,9 @@
 #define LED_DDR DDRA // LED hardware Data Direction Register
 #define LED_MASK 0xff // Total LEDs possible, (ff = 11111111)
 // The flash value is anded with this, if true the LEDs light.
-#define LED_DIM_MASK 0x06
+#define LED_DIM_MASK 0x07
 
-#define START 0x07 // Starting LED setting (7 = 00000111)
+#define START 0x0f // Starting LED setting (f = 00001111 i.e. 4 clicks)
 #define FLASH_RATE 6 // Flashing rate during setting total clicks
 #define ROLLOVER_TIME 3 // The number of 'flashes' before rolling over
 
