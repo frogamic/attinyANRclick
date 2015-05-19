@@ -94,8 +94,6 @@ int main (void)
     // Loop forever
     while (1)
     {
-        // setup mode we change the value with input.
-        uint8_t* changing = &reset;
         // Can't permanently have fewer than 1 click.
         uint8_t minimum = 1;
         // No wrap when changing permanent clicks.
@@ -124,8 +122,6 @@ int main (void)
         // Select the right values for the mode.
         if (mode == MODE_NORM)
         {
-            // we want to change the value.
-            changing = &value;
             // Minimum value of 0.
             minimum = 0;
             // Wrap to the reset value.
@@ -135,13 +131,17 @@ int main (void)
         // Get input
         if (button_state (BUT_ADD, STATE_GONEDOWN))
         {
-            shift_right (changing, LED_MASK, LED_MASK);
+            shift_right (&value, LED_MASK, LED_MASK);
+            if (mode == MODE_PERM)
+                shift_right (&reset, LED_MASK, LED_MASK);
             // Cancel any automated rollover.
             rollover = 0;
         }
         if (button_state (BUT_CLICK, STATE_GONEDOWN))
         {
-            shift_left (changing, minimum, wrap);
+            shift_left (&value, minimum, wrap);
+            if (mode == MODE_PERM)
+                shift_left (&reset, minimum, wrap);
             // Cancel any automated rollover.
             rollover = 0;
         }
